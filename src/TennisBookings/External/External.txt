@@ -1,0 +1,5 @@
+Externals
+---------------
+
+This section contains classes that implement HTTP client to communication with API 
+created in this project. 

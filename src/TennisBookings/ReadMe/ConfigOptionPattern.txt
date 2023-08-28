@@ -1,0 +1,556 @@
+Configurtion Option Pattern
+=================================
+
+
+* Option patterns
+                           
+	IOptions<T>          - Registerd  as a singleton with the DI, Does not suport relaoding, does not support named options
+	IOptionsSnapshot<T>  - Registered as scoped with the DI, suport relaoding, support named options
+	IOptionsMonitor<T>   - Registerd  as a singleton with the DI, suport relaoding, support named options
+
+	Note: defined in the Microsoft.Extensions.Options
+
+This patterns have the great benefit that can be injected as part of trh dependnecy injection infraestructure
+making configuration easyly accessible from many places.
+
+* Configuration
+-----------------
+
+First create a class that contains properties that are the same for a section confguration keys:
+For example, 
+
+	"Features": {
+		"HomePage": {
+		  "EnableGreeting": true,
+		  "EnableWeatherForecast": true,
+		  "ForecastSecionTitle": "What's the weather doing?'"
+		},
+		"WeatherForecasting": {
+		  "EnableWeatherForecasting": true
+		}
+	  },
+    
+	// Class for the 'HomePage' section inside the 'Features' section
+	public class HomePageConfiguration
+	{
+		public bool EnableGreeting { get; set; }
+		public bool EnableWeatherForecast { get; set; }
+		public string ForecastSectionTitle { get; set; } = string.Empty;
+	}
+
+On the class constructor consuming IConfiguration, replace for an IOptionsSnapshot<T>
+    
+	 IConfiguration _configuration  -> IOptions<HomePageConfiguration> options
+
+for example
+    
+	 // using IConfiguration
+	 private readonly IConfiguration _configuration;
+
+     public IndexModel(
+		ILogger<IndexModel> logger,		
+		IGreetingService greetingService,
+		IConfiguration _configuration,
+		IWeatherForecaster weatherForecaster)
+	{
+	    this._configuration = _configuration;
+	}
+
+	// replace to use IOptionsSnapshot<T>
+	private readonly HomePageConfiguration _homePageConfig;
+
+	public IndexModel(
+		ILogger<IndexModel> logger,		
+		IGreetingService greetingService,
+		IOptions<HomePageConfiguration> options,
+		IWeatherForecaster weatherForecaster)
+	{
+	    _homePageConfig = options.Value;
+	}
+
+The places where the configuration was used, as direct access or bidning, can now use the 
+configuration defined by the implemented IOptionsSnapshot<T>
+
+         // Refrences configuration elements in IOptionsSnapshot<T>
+		if (_homePageConfig.EnableGreeting)
+		{
+			Greeting = _greetingService.GetRandomGreeting();
+		}
+
+		ShowWeatherForecast = _homePageConfig.EnableWeatherForecast
+					&& _weatherForecaster.ForecastEnabled;
+
+		if (ShowWeatherForecast)
+		{
+			var title = _homePageConfig.ForecastSectionTitle;
+
+The final step to make things operational, it is required to register the IOption in teh Program.cs
+
+
+	// To use Configurations Patterns (IOptionsSnapshot<T>) 
+	builder.Services.AddOptions<HomePageConfiguration>()
+			 .Bind(builder.Configuration.GetSection("Features:HomePage"));
+
+
+* Reloading Options
+---------------------
+
+Using IOptions<T> does not respond to configuration changes in the "appsettings" files.
+IOptions<T> works as a singleton and it keep the confiuration as it was loaded at the start. 
+
+If the system, as its running, must react to a change to the "appsettings" files, it is required to use the 
+IOptionsSnapshot<T> instead, as this is register as Scoped with the DI. For example 
+
+	// replace to use IOptionsSnapshot<T>
+	private readonly HomePageConfiguration _homePageConfig;
+
+	public IndexModel(
+		ILogger<IndexModel> logger,		
+		IGreetingService greetingService,
+		IOptionsSnapshot<HomePageConfiguration> options,
+		IWeatherForecaster weatherForecaster)
+	{
+	    _homePageConfig = options.Value;
+	}
+
+It is important to exercise precaution. For non-critical features flags is failry 
+safe to reload the configuration. But a risk may be introduced when reloading configuration
+values, such as database connection strings.
+
+The developer must consider carefuly teh safty aspect when using IOptionsShapshot<t>.
+
+
+* Singleton services and IOptionsMonitor<T> pattern
+----------------------------------------------------
+
+For singleton services, it is not valid to use a IOptionsSnapshot<T>, as this is scoped. 
+IOption<t> is fine, as it is also a registered as singleton.
+
+For this combination, IOptionsMonitor<T> can be used, as it is register as a singleton too. 
+After injection, it is required to use the "options.CurrentValue", which after the next time
+is called, it will have the realoaded configuraton value. For example, 
+
+	private readonly IOptionsMonitor<GreetingConfiguration> _greetingConfiguration;
+
+	public GreetingService(
+		IWebHostEnvironment hostEnvironment,
+		ILogger<GreetingService> logger,
+		IOptionsMonitor<GreetingConfiguration> options)
+	{
+	   _greetingConfiguration = options;
+
+	}
+
+Using it will be as follows
+
+	public string GreetingColour => _greetingConfiguration.CurrentValue.GreetingColour;
+
+IOptionsMonitor<T> aslo provide the way to add a listener, usefull for advance behaviors, like using SignalR.
+For this the ideas
+
+     private GreetingConfiguration _greetingConfiguration;
+
+     public GreetingService(
+	    IWebHostEnvironment hostEnvironment,
+		ILogger<GreetingService> logger,
+		IOptionsMonitor<GreetingConfiguration> options)
+	 {
+	   _greetingConfiguration = options.CurrentValue;
+
+	   // Listen to the "OnChange" notification
+	   options.OnChange(config =>
+		{
+			_greetingConfiguration = config;
+			logger.LogInformation("The greeting configuration has been updated");
+		});
+
+	 }
+
+Using it will be as follows
+   
+    public string GreetingColour => _greetingConfiguration.GreetingColour;
+
+
+
+* Named Options (IOptionsSnapshot<T> and IOptionsMonitor<T>)
+-------------------------------------------------------------
+
+IOptionsSnapshot<T> and IOptionsMonitor<T> introduce teh concept of named options. 
+This is a feature not suported by the IOptions<T>.
+
+Used when there is two or more configuration points with simialr elements can be addressed 
+with a common class that include properties for tight coupling. 
+
+In this example, there are two setting that define external calls properties, one 
+for calling an Weather Forecast API and a Second for Products API.
+These are as follows, 
+
+	"ExternalServices": {
+		"WeatherApi": {
+		  "Url": "http://localhost:5001",
+		  "MinsToCache": 10
+		},
+		"ProductsApi": {
+		  "Url": "http://localhost:5002",
+		  "MinsToCache": 1
+		}
+	  },
+
+The ExternalServicesConfiguration, under TennisBookings.Configuration, hold stong type properties 
+that are applicable to both configurations. 
+
+	public class ExternalServicesConfiguration
+	{
+		public string Url { get; set; } = string.Empty;
+		public int MinsToCache { get; set; } = 10;
+	}
+
+In order to have strong type, one option is to duplicate twice the ExternalServicesConfiguration, rename it, 
+to align with weather and products API, and register them as services independently in teh Program.cs. 
+But this is not the best option.
+
+The second option is to use Named options. For this, we use the same class, ExternalServicesConfiguration, 
+but bind different configuration poinst to it. 
+
+To do this, the following lines demostrate how to associated the two configuration points using 
+the same class.
+
+     // Name options 
+	 builder.Services.AddOptions<ExternalServicesConfiguration>("WeatherApi",
+	        builder.Configuration.GetSection("ExternalServices:WeatherApi"));
+
+     builder.Services.AddOptions<ExternalServicesConfiguration>("ProductApi",
+	        builder.Configuration.GetSection("ExternalServices:ProductApi"));
+
+
+For comsuption in classes, it is required to use in teh constructor as injected parameter
+the IOptionsSnapshot<T> or IOptionsMonitor<T>. For example the TennisBookings.External.WeatherApiClient
+looks as follows, in where the required configurtion point is refrenced:
+
+     public WeatherApiClient(
+		   HttpClient httpClient,
+		   IOptionsMonitor<ExternalServicesConfiguration> options,
+		   ILogger<WeatherApiClient> logger)
+    {
+		var externalServicesConfig = options.Get("WeatherApi");
+
+		var url = externalServicesConfig.Url;
+		...
+     } 
+
+Anoher example using the Named Option is TennisBookings.Shared.Weather.CachedWeatherForecaster
+
+    private readonly int _minsToCache;
+
+	public CachedWeatherForecaster(
+		IWeatherForecaster weatherForecaster,
+		IDistributedCache<WeatherResult> cache,
+		IOptionsMonitor<ExternalServicesConfiguration> options)
+	{
+		_weatherForecaster = weatherForecaster;
+		_cache = cache;
+		_minsToCache = options.Get("WeatherApi").MinsToCache;
+	}
+
+
+A consideration is that because it is requiered to type a string for the configuration element, wherever is
+used, this could lead to typos and errors. For example
+
+       minsToCache = options.Get("WeatherApi").MinsToCache;
+
+A better solution is to add these strings into the common class as constants, and type the strings once
+and use them instead of typyng strings. For example
+
+	public class ExternalServicesConfiguration
+	{
+		public const string WeatherApi = "WeatherApi";
+		public const string ProductsApi = "ProductsApi";
+
+		public string Url { get; set; } = string.Empty;
+		public int MinsToCache { get; set; } = 10;
+	}
+
+
+This way, the code can be refacotor as follows,
+
+    // Program.cs
+	// Name options 
+	builder.Services.AddOptions<ExternalServicesConfiguration>(
+		ExternalServicesConfiguration.WeatherApi)
+		.Bind(builder.Configuration.GetSection("ExternalServices:WeatherApi"))
+		.ValidateOnStart();
+
+	builder.Services.AddOptions<ExternalServicesConfiguration>(
+		ExternalServicesConfiguration.ProductsApi)
+		.Bind(builder.Configuration.GetSection("ExternalServices:ProductsApi"))
+		.ValidateOnStart();
+
+	// WeatherApiClient
+	public WeatherApiClient(
+			   HttpClient httpClient,
+			   IOptionsMonitor<ExternalServicesConfiguration> options,
+			   ILogger<WeatherApiClient> logger)
+    {
+	   //var externalServicesConfig = options.Get("WeatherApi");
+	   var externalServicesConfig = options.Get(ExternalServicesConfiguration.WeatherApi);
+
+	   var url = externalServicesConfig.Url;
+	}
+
+	// CachedWeatherForecaster
+	public CachedWeatherForecaster(
+		IWeatherForecaster weatherForecaster,
+		IDistributedCache<WeatherResult> cache,
+		IOptionsMonitor<ExternalServicesConfiguration> options)
+	{
+		_weatherForecaster = weatherForecaster;
+		_cache = cache;
+		_minsToCache = options.Get(ExternalServicesConfiguration.WeatherApi).MinsToCache;
+	}
+
+
+
+* Options Validations, as simple approach
+-----------------------------------------------
+
+Note: using System.ComponentModel.DataAnnotations;
+
+This is uising attributes into the classes that represent a section of the configuration. 
+For example
+ 
+    public class HomePageConfiguration
+	{
+		public bool EnableGreeting { get; set; }
+		public bool EnableWeatherForecast { get; set; }
+		[Required (ErrorMessage = "A title is requierd for the weather forecast section.")]
+		public string ForecastSectionTitle { get; set; } = string.Empty;
+	}
+
+To enforce the attribute validation, the registration in Program.cs is as follows
+
+	builder.Services.AddOptions<HomePageConfiguration>()
+		.Bind(builder.Configuration.GetSection("Features:HomePage"))
+		.ValidateDataAnnotations();  // This option indicate to enforce the attribute validations
+
+If the element is missing in the configuration the application will produce an error on run-time. 
+
+A better approach is to stop the application from the start if configuration is missing.
+For this, in the registrattion add .ValidateOnStart()
+
+     builder.Services.AddOptions<HomePageConfiguration>()
+		.Bind(builder.Configuration.GetSection("Features:HomePage"))
+		.ValidateDataAnnotations()  // This option indicate to enforce the attribute validations
+		.ValidateOnStart();         // evaluate if all config is available, otherwise fail to start
+
+
+
+* Options Validations, advance approach using functions
+----------------------------------------------------------
+
+Insted of using data annotations attributes, a function can be used to identify if somethiong is missing.
+This functionality is added at teh registration in the Program.cs. For example 
+
+	// Example using a validate function
+	builder.Services.AddOptions<HomePageConfiguration>()
+		.Bind(builder.Configuration.GetSection("Features:HomePage"))
+		.Validate(c =>
+		{
+			return !c.EnableWeatherForecast || !string.IsNullOrEmpty(c.ForecastSectionTitle);
+		}, "A section title must be provided when the homepage weather forecast is enabled.")
+		.ValidateOnStart();
+
+
+
+* Options Validations, advance approach using validation classes
+-------------------------------------------------------------------
+
+An additional avance technique is to create Validation classes, which implment IValidateOptions<T>.
+The validation classes are registered in the Program.cs and and upon execution, if it fails, the
+applicaiton will not run.
+
+The project has many validation classes. The TennisBookings.Configuration.HomePageConfigurationValidation
+will be followed as example. THis is as follows:
+
+	public class HomePageConfigurationValidation : IValidateOptions<HomePageConfiguration>
+	{
+		private readonly WeatherForecastingConfiguration _weatherConfig;
+		private readonly IProfanityChecker _profanityChecker;
+		private readonly bool _checkForProfanity;
+
+		public HomePageConfigurationValidation(
+			IContentConfiguration contentConfig,
+			IOptions<WeatherForecastingConfiguration> weatherConfig,
+			IProfanityChecker profanityChecker)
+		{
+			_checkForProfanity = contentConfig.CheckForProfanity;
+			_weatherConfig = weatherConfig.Value;
+			_profanityChecker = profanityChecker;
+		}
+
+		public ValidateOptionsResult Validate(string name, HomePageConfiguration options)
+		{
+		   // performe validaiton here, please see code
+		}
+
+	}
+
+The important part is that the IOption can be injected, and this permits to create any validation agains the 
+confurations section on the 'HomePage' section, representd by the HomePageConfiguration class.
+
+In order for to work, the validation class need to be regitered in the Program.cs
+For example, 
+
+	// IOption for "Features:HomePage"
+	builder.Services.AddOptions<HomePageConfiguration>()
+		.Bind(builder.Configuration.GetSection("Features:HomePage"))
+		.ValidateOnStart();
+
+	// validation class for HomePageConfiguration
+	builder.Services.TryAddEnumerable(
+		ServiceDescriptor.Singleton<IValidateOptions<HomePageConfiguration>,
+			HomePageConfigurationValidation>());
+
+
+
+* Name option config validations 
+-----------------------------------
+Note: one class for two simialt conf elements
+
+The example is TennisBookings.Configuration.ExternalServicesConfigurationValidation.
+As part of the IValidateOptions<T>, the implementation method 'Validate', passes a
+'name' parameter that will describe what config section is trying to validate.
+
+This 'name' can be used to implement a switch statement that can drive the specific 
+validation to the conf section. For example, 
+
+		public class ExternalServicesConfigurationValidation : IValidateOptions<ExternalServicesConfiguration>
+		{
+			private readonly WeatherForecastingConfiguration _weatherConfig;
+
+			public ExternalServicesConfigurationValidation(
+				IOptions<WeatherForecastingConfiguration> weatherConfig)
+			{
+				_weatherConfig = weatherConfig.Value;
+			}
+
+			public ValidateOptionsResult Validate(string name, ExternalServicesConfiguration options)
+			{
+				switch (name)
+				{
+				   case "WeatherApi":
+					 ...
+				   break;
+				   case "ProductsApi":
+					  ...
+				   break;
+				   default:
+					  return ValidateOptionsResult.Skip;
+				}
+			}
+		}
+
+
+* Options forwarding 
+-----------------------
+
+If the applcation depends only in inkecting IOptions<T>, it may only be neded the strong type configuration aspect 
+the Otions features. This is a simpler approach for configuration validation, and teh implementation is as
+follows.
+
+For a given configuration class, for example TennisBookings.Configuration.ContentConfiguration, create 
+an interface that describes it.
+
+	public class ContentConfiguration : IContentConfiguration
+	{
+		public bool CheckForProfanity { get; set; }
+	}
+
+Teh imterface, TennisBookings.Configuration.IContentConfiguration, is as follows
+
+	// Option frwarding implementation
+	// The interface is implemented by TennisBookings.Configuration.ContentConfiguration
+	public interface IContentConfiguration
+	{
+		bool CheckForProfanity { get; set; } // intention is to implement a consumer abstraction
+	}
+
+With this chnage, in the places that IOptions<ContentConfiguration> contentConfig is refrenced
+it can be chnaged to IContentConfiguration contentConfig. For example in the 
+TennisBookings.Configuration.HomePageConfigurationValidation, the change will look like this.
+
+
+	public class HomePageConfigurationValidation : IValidateOptions<HomePageConfiguration>
+	{
+		private readonly WeatherForecastingConfiguration _weatherConfig;
+		private readonly IProfanityChecker _profanityChecker;
+		private readonly bool _checkForProfanity;
+
+		public HomePageConfigurationValidation(
+			IContentConfiguration contentConfig,  // before was IOptions<ContentConfiguration> contentConfig,
+			IOptions<WeatherForecastingConfiguration> weatherConfig,
+			IProfanityChecker profanityChecker)
+		{
+			_checkForProfanity = contentConfig.CheckForProfanity;  // before contentConfig.Value.CheckForProfanity;
+			_weatherConfig = weatherConfig.Value;
+			_profanityChecker = profanityChecker;
+		}
+
+		public ValidateOptionsResult Validate(string name, HomePageConfiguration options)
+		{
+		  ...
+		}
+	}
+
+The final step is to register> this can be done directly in the Program.cs or inside a service extension class.
+For this example, the TennisBookings.DependencyInjection.ConfigurationServiceCollectionExtensions was used, 
+and inside the AddAppConfiguration, the following registration was added.
+
+		// Registration for Option forwarding 
+		services.AddSingleton<IContentConfiguration>(sp =>
+			 sp.GetRequiredService<IOptions<ContentConfiguration>>().Value);
+
+
+* Testing IOptions
+-----------------------------------
+
+Testing IOptions can have different approaches. 
+For example, adding a new class for that passes as parameter for instantiating the ClubIsOpenRule
+
+	   [Fact]
+		public async Task CompliesWithRuleAsync_ReturnsTrue_WhenValuesAreValid()
+		{
+			var options = Options.Create(new ClubConfiguration
+			{
+				OpenHour = 9,
+				CloseHour = 22
+			});
+
+			var sut = new ClubIsOpenRule(options);
+
+			var result = await sut.CompliesWithRuleAsync(new Data.CourtBooking()
+			{
+				StartDateTime = new DateTime(2019, 01, 01, 10, 00, 00),
+				EndDateTime = new DateTime(2019, 01, 01, 12, 00, 00)
+			});
+
+			Assert.True(result);
+		}
+
+As second option is using the Moq framework, 
+
+		[Fact]
+		public async Task CompliesWithRuleAsync_ReturnsFalse_WhenBookingEndsAfterClubIsClosed()
+		{
+			var mockOptions = new Mock<IOptions<ClubConfiguration>>();
+			mockOptions.SetupGet(x => x.Value)
+				.Returns(new ClubConfiguration { OpenHour = 9, CloseHour = 22 });
+
+			var sut = new ClubIsOpenRule(mockOptions.Object);
+
+			var result = await sut.CompliesWithRuleAsync(new Data.CourtBooking()
+			{
+				StartDateTime = new DateTime(2019, 01, 01, 21, 00, 00),
+				EndDateTime = new DateTime(2019, 01, 01, 23, 00, 00) // this is too late
+			});
+
+			Assert.False(result);

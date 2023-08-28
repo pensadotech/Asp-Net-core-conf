@@ -1,0 +1,686 @@
+Configuration providers
+============================
+
+Used to load configuration values for an application. 
+By default APS.NET Core Comes with an integrated one to load fron a JSON file (appsettings.json).
+
+Providers can load configuration from
+
+	* Json files
+	* Environment variables
+	* Command line arguments
+	* Cloud Services
+
+There are tww places where configuration applies
+
+	* Host configurarion - when the Host for the application is built configuration comes from the environment variables.
+	* Application configuration - during host builder phase application specific configuration is loaded. 
+
+
+* Configuration providers loading order
+------------------------------------------
+
+Configuration providers are executed in oreder, and each can add or override configuration values.
+The default host builder includes default configuration providers
+
+The hosting framework,IWebHostBuilder.CreateDefaultBuilder(string[] args) calls the 
+builder.ConfigureAppConfiguration((hostingContext, config)) that is used as default to load
+the configuration. 
+
+Inside this class, the order in which config is loaded is
+
+	* JSON(appsettings.json)
+	* JSON(appsettings.<environment>.json)  (e.g. appsettings.development.json)
+	* User Secrets (in Development)
+	* Environment variables
+	* Command line arguments
+
+The code is as follows:
+    
+	ref: https://code-maze.com/aspnet-configuration-providers/
+
+	public static IHostBuilder CreateDefaultBuilder(string[] args)
+	{
+		var builder = new HostBuilder();
+    
+		builder.ConfigureAppConfiguration((hostingContext, config) =>
+		{
+			var env = hostingContext.HostingEnvironment;
+           
+		    // Load JSON files
+			config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+					.AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true, 
+					reloadOnChange: true);
+            
+			// Load user secrets
+			if (env.IsDevelopment() && !string.IsNullOrEmpty(env.ApplicationName))
+			{
+				var appAssembly = Assembly.Load(new AssemblyName(env.ApplicationName));
+            
+				if (appAssembly != null)
+				{
+					config.AddUserSecrets(appAssembly, optional: true);
+				}
+			}
+            
+			// Environment variables
+			config.AddEnvironmentVariables();
+            
+			// Command line arguments
+			if (args != null)
+			{
+				config.AddCommandLine(args);
+			}
+		})
+    
+		return builder;
+	}
+
+
+
+* Environment variables
+---------------------------
+
+When using environment variables it is imporant taht for key heriarchi, 
+to add a double underscore (i.e. "__") to the key name.
+For example,
+
+    HomePage:ShowGallery = true    will become as     HomePage__ShowGallery = true
+
+When using command line (powershell) to run the applcation using the "dotnet run" command
+environment variables are set first before executing. This is an examle for setting
+an environment variable using pwoershell. 
+
+										 // Keyname, Value, scope
+	[Environment]::SetEnvironmentVariable("Features__Greetings__GreetingColour","#FF0000","User")
+
+Instead of restarting teh powershell to take the defined variable, the following command makes it available
+
+
+	$Env:Features__Greetin__GreetingColour = [System.Environment]::GetEnvironmentVariable("Features_Greeting_GreetingColour","User")
+
+
+By running the application (i.e. dotnet run) the environment variable will override teh definitions set in the JSON files.
+If using Visual Studio, it is required to reload it in oder to pick teh new environment variable. 
+
+When using Visual Stuido only, no pwoershell, environment varaiables can be added to the launchSettings.json file.
+The settings goes into teh "environmentVariables" section. For example,
+
+    Note: Environment variables set in here will override in memory the values defined inside the appsetting.json files values. 
+
+    // launchSettings.json 
+	{
+	  "profiles": {
+		"TennisBookings": {
+		  "commandName": "Project",
+		  "launchBrowser": true,
+		  "environmentVariables": {
+			"ASPNETCORE_ENVIRONMENT": "Development",
+			"Features__Greetings__GreetingColour": "#FF0000"
+		  },
+		  "applicationUrl": "https://localhost:7273;http://localhost:5273"
+		}
+	  }
+	}
+
+
+* Command line arguments
+---------------------------
+
+This is an example using a command line argument
+
+	dotnet run --Features:Greeting:GreetingColour "#FF00FF"
+
+Note: Command line arguments take precedence over any other setting.
+
+Alternative way to pass the aruments are as follows
+
+   dotnet run Features:Greeting:GreetingColour="#FF00FF"
+
+   dotnet run /Features:Greeting:GreetingColour=#FF00FF
+
+
+  To clean a enviroment variable use teh following command
+
+      [Environment]::SetEnvironmentVariable("Features__Greetings__GreetingColour",$null,"User")
+
+
+
+* Sensitive settings and secrets
+-------------------------------------
+
+It is important to avoid adding passwords into the configuratio settings. 
+The sensitive information must be only accessible by the systems and 
+the people that play an admin role. 
+
+It is common for applicaiton to keep safe connection string and API keys, or other sensitve data.
+This is critical to avoid exposing in teh source control informatin that should not be shared
+for the general public.
+
+
+* Secure secrets for development (local computer)
+------------------------------------------------------
+
+To ilustrate the concepts, let us consider the following ideas using the Products API.
+First the API wil lenable a simple secutity, my adding soe code to the Programc.s, as follows.
+Anyone trying to access the API must propide a key withvalue "SUPERSECRETKEY"
+
+	app.Use(async (context, next) =>
+	{
+	    // to authorize comsumer to use the API
+		if (context.Request.Headers["ApiKey"] != "SUPERSECRETKEY")
+		{
+			context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+			return;
+		}
+
+		await next.Invoke();
+	});
+
+The TennisBookings.External.ProductsApiClient wil require sending in the header the 
+authorization key.
+
+			var request = new HttpRequestMessage(HttpMethod.Get, path);
+
+			request.Headers.Add("ApiKey", _productsApiConfig
+				.Get(ExternalServicesConfiguration.ProductsApi).ApiKey);
+
+			var response = await _httpClient.SendAsync(request);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+For this a ApiKey property need to be added to the TennisBookings.Configuration.ExternalServicesConfiguration
+
+		public class ExternalServicesConfiguration
+		{
+			public const string WeatherApi = "WeatherApi";
+			public const string ProductsApi = "ProductsApi";
+
+			public string Url { get; set; } = string.Empty;
+			public int MinsToCache { get; set; } = 10;
+			public string ApiKey { get; set; } = string.Empty;  // Adding API key
+		}
+
+The first reaction is adding the key to the appsetting.json, but this a bad practice
+
+		"ExternalServices": {
+			"WeatherApi": {
+			  "Url": "http://localhost:5001",
+			  "MinsToCache": 10
+			},
+			"ProductsApi": {
+			  "Url": "http://localhost:5002",
+			  "MinsToCache": 1
+			  "ApiKey": "SUPERSECRETKEY"   // Adding teh key here is bad
+			}
+		  },
+
+Instead, the appsettings.json should not containe teh ApiKey, and use secrets. 
+
+		"ExternalServices": {
+			"WeatherApi": {
+			  "Url": "http://localhost:5001",
+			  "MinsToCache": 10
+			},
+			"ProductsApi": {
+			  "Url": "http://localhost:5002",
+			  "MinsToCache": 1
+			}
+		  },
+
+* Adding secrets to the project in the developer's computer
+-------------------------------------------------------------
+
+	* Select the main project (i.e. TennisBookings) with Mouse right-button and Select "Manage User Secrets"
+	* A secrets.json file is open in editor, but this file will not exist in the project directory. 
+	* The secret.json will still be an ASCII file, but protected under the developer security profile, 
+	  accessible by admin user and teh developer. 
+	* it is created in user folder <user>/AppData/Roaming/Microsoft/UserSecrets/<GUID-filename>
+	  Fo example, 
+	      
+		  C:\Users\apens\AppData\Roaming\Microsoft\UserSecrets\d96f5f5e-47fe-41ec-8ff2-ac0032bdba56
+		  
+
+	* The secret file <GUID> is added to the project with a unique GUID, as <UserSecretsId><GUID></UserSecretsId>
+
+		<PropertyGroup>
+			<TargetFramework>net6.0</TargetFramework>
+			<Nullable>enable</Nullable>
+			<ImplicitUsings>enable</ImplicitUsings>
+			<UserSecretsId>d96f5f5e-47fe-41ec-8ff2-ac0032bdba56</UserSecretsId>  // <-- here is added 
+		</PropertyGroup>
+
+
+	* Secrets can be added manually to the file or can be added using PowerShell (command editor or CLI).
+	  The author recomend using powershel for its conveneince. 
+	  
+	* When using PowerShell (CLI), select the main project (i.e.TennisBooking) abd with teh mouse right-button 
+	  select "Open in Terminal". After the terminal is open at the bottom of the IDE use following 
+	  command to create a secret inside the file.
+
+		command: dotnet user-secrets set <NAME> <VALUE>     
+        Example: dotnet user-secrets set "ExternalServices:ProductsApi:ApiKey" "SUPERSECRETKEY" 
+
+	* The developer can use the "List" comand to see all stored secrets.  The is as follows:
+	
+        command: dotnet user-secrets list
+
+	* The developer can see the secret.json to inspect the new entry. This may look as follows
+
+		// secret.json
+		{
+		  "ExternalServices:ProductsApi:ApiKey": "SUPERSECRETKEY"
+		}
+
+   * The secrets are loaded automatically, as the builder.ConfigureAppConfiguration is coded to load 
+     secrets automatically, in this case will match to the ExternalServicesConfiguration.ProductsApi.ApiKey
+	 referenced in the TennisBookings.External.ProductsApiClient code. This is equivalent to adding the
+	 definition to the appsetings.json
+
+
+
+* Adding secrets for production (Azure Key vaults)
+----------------------------------------------------
+Recomended course: How to authneticate .NET Apps to Azure services using the .NET Azure SDK
+                   learn.microsoft.com/dotnet/azure/sdk/authentication
+
+For the application to access Azure, the following NuGet packages are needed (latest stable versions)
+
+	* Azure.Extensions.AspNetCore.Configuration.Secrets
+	* Azure.Identity
+
+Let us pretend that the Product API has a a production key as follows
+        
+    // Product.Api Program.cs
+	app.Use(async (context, next) =>
+	{
+		if (context.Request.Headers["ApiKey"] != "PRODUCTIONSUPERSECRETKEY")  
+		{
+			context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+			return;
+		}
+
+		await next.Invoke();
+	});
+
+In the azure portal, 
+
+* Access teh 'Key Vaults' service.
+* Create a vault for the Tennis Booking application (.e.g. TennisBooking).
+* Go inot teh created TennisBookng vault and copy teh URI (e.g. https://tennisbookings.vault.azure.net/).
+* From the menu select 'Secrets'  and select 'Generate/Import'.
+* For the name, provide the exact heriachical organization, but instead of using colons, use doube dashes.
+  For example, 
+
+   ExternalServicesConfiguration--ProductsApi--ApiKey
+
+* For the value use the expected value "PRODUCTIONSUPERSECRETKEY"
+* Save and the secre is stored in teh vauld and should be listed in the Key Vault secrest view. 
+
+Because Azure Vaoult is not teh defautl provider, it need to be enabled in the main project Program.cs.
+In this case, TennisBookings. The change must be applicable only for production environments, 
+allowing developers to use their user secrets.
+
+	if (builder.Environment.IsProduction())
+	{
+	  configBuilder.AddAzureKeyVault(
+			new Uri($"https://{builder.Configuration["KeyVaultName"]}.vault.azure.net/"),
+			new DefaultAzureCredential());
+
+	  configBuilder.AddSystemsManager("/tennisBookings");
+	}
+
+It is required to add to the appsettings.json the KeyValutName confoguration, as follows
+
+
+	 "AllowedHosts": "*",
+
+	 "KeyVaultName": "tennisbookings",
+
+This configuration does permit securiing production with an azure vault, and teh develoeprs can still use
+their local secrets. The Product Api can be set back to the developer's ApiKey value
+
+    // Product.Api Program.cs
+	app.Use(async (context, next) =>
+	{
+		if (context.Request.Headers["ApiKey"] != "SUPERSECRETKEY")  
+		{
+			context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+			return;
+		}
+
+		await next.Invoke();
+	});
+
+It should be clear that for the ProdcutApi similar treatment need to be done, to store the ApiKey
+in a secret location too. Teh epxlanaton here is only for demostration purposes. 
+
+
+
+* Customize the order of configuration providers
+-------------------------------------------------
+
+As a reminder the order in which confoguration providers are loaded is set by default in 
+the builder.ConfigureAppConfiguration. Here is teh order and the default code.
+
+nside this class, the order in which config is loaded is
+
+	* JSON(appsettings.json)
+	* JSON(appsettings.<environment>.json)  (e.g. appsettings.development.json)
+	* User Secrets (in Development)
+	* Environment variables
+	* Command line arguments
+
+The code is as follows:
+    
+	ref: https://code-maze.com/aspnet-configuration-providers/
+
+	public static IHostBuilder CreateDefaultBuilder(string[] args)
+	{
+		var builder = new HostBuilder();
+    
+		builder.ConfigureAppConfiguration((hostingContext, config) =>
+		{
+			var env = hostingContext.HostingEnvironment;
+           
+		    // Load JSON files
+			config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+					.AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true, 
+					reloadOnChange: true);
+            
+			// Load user secrets
+			if (env.IsDevelopment() && !string.IsNullOrEmpty(env.ApplicationName))
+			{
+				var appAssembly = Assembly.Load(new AssemblyName(env.ApplicationName));
+            
+				if (appAssembly != null)
+				{
+					config.AddUserSecrets(appAssembly, optional: true);
+				}
+			}
+            
+			// Environment variables
+			config.AddEnvironmentVariables();
+            
+			// Command line arguments
+			if (args != null)
+			{
+				config.AddCommandLine(args);
+			}
+		})
+    
+		return builder;
+	}
+
+It is rare to need to change the order, but in case that it is needed, the developer can overrider
+by including the following code into teh Progra.cs. The first action must be to clear the existing behavior
+before adding teh new one. 
+
+	builder.Host.ConfigureAppConfiguration((ctx, configBuilder) =>
+	{
+		configBuilder.Sources.Clear();  // clear default behavior
+
+		... new behavior goes here
+	}
+
+A full example code can be listed as follows for the Program.cs
+
+ 
+    //  Program.cs - change order for configuraiton providers
+	builder.Host.ConfigureAppConfiguration((ctx, configBuilder) =>
+	{
+	    // clear default behavior
+		configBuilder.Sources.Clear(); 
+
+		var env = ctx.HostingEnvironment;
+		
+		// take environment variables
+		configBuilder.AddEnvironmentVariables("ASPNETCORE_");  
+
+		// read confuration for appsettings.json
+		configBuilder.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+
+		// add user secrets
+		if (env.IsDevelopment() && !string.IsNullOrEmpty(env.ApplicationName))
+		{
+			var appAssembly = Assembly.Load(new AssemblyName(env.ApplicationName));
+			if (appAssembly is not null)
+			{
+				configBuilder.AddUserSecrets(appAssembly, optional: true);
+			}
+		}
+
+		// Only for production environments
+		if (builder.Environment.IsProduction())
+		{   
+		// Azure provider
+			configBuilder.AddAzureKeyVault(
+					new Uri($"https://{builder.Configuration["KeyVaultName"]}.vault.azure.net/"),
+					new DefaultAzureCredential());
+
+			// AWS provider
+			configBuilder.AddSystemsManager("/tennisBookings");
+		}
+
+		// take environment variables
+		configBuilder.AddEnvironmentVariables();
+		
+	});
+
+
+* Load configuration from a database
+--------------------------------------
+The following example add a configuration provider for a database.
+
+Firts, add a class that represent the entity in teh DB that wil hold the configuration entries table. 
+For example,
+
+	namespace TennisBookings.Data;
+
+	public class ConfigurationEntry
+	{
+		[Key]
+		public string Key { get; set; } = string.Empty;
+		public string Value { get; set; } = string.Empty;
+	}
+
+Add the class to teh DbContext, and initialized it. In this example, an in-memory database is used.
+
+    // Entity for configuration entries table
+    public DbSet<ConfigurationEntry> ConfigurationEntries => Set<ConfigurationEntry>();
+
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+	{
+	    // Example to initialize a single record the database
+		modelBuilder.Entity<ConfigurationEntry>().HasData(
+			new ConfigurationEntry
+			{
+				Key = "Features:HomePage:ForecastSectionTitle",
+				Value = "Forecast title from Entity Framework (SQLite)"
+			});
+
+			... 
+	}
+
+Add a custom configuration provider that inherits functionality from MS ConfigurationProvider, 
+and inject Action for the DB context, and store in a property OptionsAction. Then override teh method 'Load()'. 
+For example
+
+    namespace TennisBookings.Configuration.Custom;
+
+	// Used for the custom configuration provder from teh database
+
+	public class EntityFrameworkConfigurationProvider : ConfigurationProvider
+	{
+		// Properties
+		public Action<DbContextOptionsBuilder> OptionsAction { get; }
+
+		// Constructor
+		public EntityFrameworkConfigurationProvider(Action<DbContextOptionsBuilder> optionsAction)
+		{
+			OptionsAction = optionsAction;
+		}
+
+		// Methods
+		public override void Load()
+		{
+			// create an instance of the DB context buildr
+			var builder = new DbContextOptionsBuilder<TennisBookingsDbContext>();
+
+			// Call s Option action, passing int teh build
+			OptionsAction(builder);
+
+			// Populate the Data property on the base class
+
+			// Create DB context passing teh builder
+			using var dbContext = new TennisBookingsDbContext(builder.Options);
+
+			// because a in-memory DB is used, make sure teh DB is created
+			dbContext.Database.EnsureCreated();
+
+			// retreive teh data and add it to a Dictionary that holds teh kesy and values
+			Data = dbContext.ConfigurationEntries.Any()
+				? dbContext.ConfigurationEntries.ToDictionary(entry => entry.Key,
+					entry => entry.Value, StringComparer.OrdinalIgnoreCase)
+				: new Dictionary<string, string>();
+		}
+	}
+
+Next, it is required to create a configuration source, which inmplements teh IConfigurationSource, 
+which will create an instance of the provider, and to allow adding it to the IConfiguration builder. 
+This wil still also receive the Action for the DB context, and it will be stored in the OptionsAction property.
+
+
+	namespace TennisBookings.Configuration.Custom;
+
+	public class EntityFrameworkConfigurationSource : IConfigurationSource
+	{
+		private readonly Action<DbContextOptionsBuilder> _optionsAction;
+
+		public EntityFrameworkConfigurationSource(Action<DbContextOptionsBuilder> optionsAction)
+		{
+			_optionsAction = optionsAction;
+		}
+
+		// Call configuration provider created before passing the OptionsAction
+		public IConfigurationProvider Build(IConfigurationBuilder builder) =>
+			new EntityFrameworkConfigurationProvider(_optionsAction);
+	}
+
+The source coul be added to directly to te IConfiguraton builder, but a preferend path is to 
+provide a more specific extansion method encapsulating the code.
+For example,
+
+	namespace TennisBookings.Configuration.Custom;
+
+	public static class EntityFrameworkExtensions
+	{
+		public static IConfigurationBuilder AddEfConfiguration(this IConfigurationBuilder builder,
+			Action<DbContextOptionsBuilder> optionsAction) =>
+				builder.Add(new EntityFrameworkConfigurationSource(optionsAction));
+	}
+
+
+With the extension in place, this can be added into the Program.cs. The extension method AddEfConfiguration
+will recive the already created 'connection' object.
+For example,
+    
+	// Program.cs.
+	var builder = WebApplication.CreateBuilder(args);
+
+	using var connection = new SqliteConnection(builder.Configuration
+		.GetConnectionString("SqliteConnection"));
+	
+	await connection.OpenAsync();
+
+    // Custom configuration provider using a database
+    configBuilder.AddEfConfiguration(o => o.UseSqlite(connection));
+
+
+If teh developer implemented a chnage for loading configuration providers, the call for the custom
+provide extension class, can be added as one more provider to load. 
+For example, 
+    
+	// Program.cs.
+	var builder = WebApplication.CreateBuilder(args);
+
+	using var connection = new SqliteConnection(builder.Configuration
+		.GetConnectionString("SqliteConnection"));
+     
+	await connection.OpenAsync();
+
+    //  Program.cs - change order for configuraiton providers
+	builder.Host.ConfigureAppConfiguration((ctx, configBuilder) =>
+	{
+	    // clear default behavior
+		configBuilder.Sources.Clear(); 
+
+		var env = ctx.HostingEnvironment;
+		
+		// take environment variables
+		configBuilder.AddEnvironmentVariables("ASPNETCORE_");  
+
+		// read confuration for appsettings.json
+		configBuilder.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+
+		// add user secrets
+		if (env.IsDevelopment() && !string.IsNullOrEmpty(env.ApplicationName))
+		{
+			var appAssembly = Assembly.Load(new AssemblyName(env.ApplicationName));
+			if (appAssembly is not null)
+			{
+				configBuilder.AddUserSecrets(appAssembly, optional: true);
+			}
+		}
+
+		// Only for production environments
+		if (builder.Environment.IsProduction())
+		{   
+		// Azure provider
+			configBuilder.AddAzureKeyVault(
+					new Uri($"https://{builder.Configuration["KeyVaultName"]}.vault.azure.net/"),
+					new DefaultAzureCredential());
+
+			// AWS provider
+			configBuilder.AddSystemsManager("/tennisBookings");
+		}
+
+		// take environment variables
+		configBuilder.AddEnvironmentVariables();
+
+		// Custom configuration provider using a database
+		configBuilder.AddEfConfiguration(o => o.UseSqlite(connection));
+		
+	});
+
+
+
+
+*  How to debug configuration during development
+---------------------------------------------------
+The configuration manager, which implements IConfiguration Root, 
+provides a way to access teh configurations in memory.
+Teh following funcitojnality generates a human-readable view of the 
+configuration showing where each value came from.
+
+public static string GetDbugView (this IConfigurationRoot root);
+
+For example, and making sure this occurs only during development, 
+the following code can reflect in the console the configuration loaded.
+
+	WARNING: This will expose all configuration and there could be sesnitive data 
+	that should not be exposed. Secrets are exposed in plan text.
+
+	// add a way to display in thw console the final settings 
+	//  loaded in memory
+	if (builder.Environment.IsDevelopment())
+	{
+		var debugView = builder.Configuration.GetDebugView();
+		Console.WriteLine(debugView);
+	}
+
+

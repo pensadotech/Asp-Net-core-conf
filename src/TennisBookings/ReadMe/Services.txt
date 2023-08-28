@@ -1,0 +1,5 @@
+Services
+--------------------
+The 'Services' folder contain services that are register into memory through the Services extensions.
+Although, these can be register individually, the intention is to demostrate how can be done 
+using services extensions. 

@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "TennisBookings": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      // "launchUrl": "contact", // used define stating page, by defautl will start with index.html 
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:7273;http://localhost:5273"
+    }
+  }
+}

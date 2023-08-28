@@ -1,0 +1,212 @@
+Project Intro
+----------------------------
+
+This project review configration concepts for APS.NET Core ( .NET 6) appllications. 
+Configureation is defined at appsettings.json, and this example demostrate teh interactions from 
+the code. 
+
+Additioanlly, this project present the use of Services exstensions as a way to register services.
+This presents many approaches for this, including the use of 'scutor' to register services on
+execution time. 
+
+The project also registers as service a background process using IHostedService. This process will 
+execute at start and initialze teh users for the in memory database. 
+
+Note: For this project to operate propely, teh startup must be configured to start the API withouth 
+      debuging and the TennisBookings project started with debugging. 
+
+	  To do this, selecting the 'TennisBookings' and with right-button for teh mouse
+	  select 'Configure Startup Projects'
+
+
+Configuration concepts
+----------------------------
+
+NOTE: If a configuration setting is not found, the default value for the definted type will be used.
+
+
+* Direct access:
+
+
+A direct access to a cnfiguration variable is using the GetValue in the ibjected configuration object 
+For example: 
+
+    if (_configuration.GetValue<bool>("Features:HomePage:EnableGreeting"))
+    {
+    }
+
+
+* Access through a section:
+
+
+A different approach is to create a IConfiguration object for the configuration section, and retreive 
+the configuration items without having to retype the full flat text for the section.
+For example:
+
+    var homePageFeatures = _configuration.GetSection("Features:HomePage"");
+
+    if (homePageFeatures.GetValue<bool>("EnableGreeting"))
+    {
+    }
+
+	ShowWeatherForecast = homePageFeatures.GetValue<bool>("EnableWeatherForecast");
+
+	if(ShowWeatherForecast)
+	{
+	   // Note: By defulat all configuration is handled as string.
+	   // For string values the configuration key can be passed as Indexer
+	   // to retreive directly teh string value
+	   var title = homePageFeatures["ForecastSecionTitle"];
+
+	   ...
+	}
+
+
+* Access configuration at Startup (Connection strings):
+
+
+It is common for appliction to use a database connection string. This is normally
+defined in the appsetting.json under the 'ConnectionStrings' section.
+For example
+
+	    "ConnectionStrings": {
+            "SqliteConnection": "Filename=:memory:"
+        },
+
+To access this configuration, at the entry point of the applicaiton (i.e. Program.cs), 
+the database library can read it automatically by using the database connection object (e.g. 'SqliteConnection' ), 
+which receives an IConfiguration object that includes a 'GetConnectionString' method,
+and using the configuration key teh system will retreive the connection string from the configuration.
+For example,
+
+	    using var connection = new SqliteConnection(builder.Configuration
+	                    .GetConnectionString("SqliteConnection"));
+
+       await connection.OpenAsync();
+
+
+	   // Add services to the container to access the DB context.
+       builder.Services.AddDbContext<TennisBookingsDbContext>(options => options.UseSqlite(connection));
+       builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+
+
+* Using configuration in service extensions to conditionally register services:
+
+
+If a service extension need a configuration value, for example, to register or not services, 
+the IConfiguration object can be passed for internal use.
+For example, at the Program.cs
+    
+	// use a service extension to register services
+    builder.Services.AddWeatherForecasting(builder.Configuration)
+
+Inside the WeatherServiceCollectionExtensions
+   
+   public static IServiceCollection AddWeatherForecasting(this IServiceCollection services,
+		IConfiguration config)
+	{
+	    // Register services
+	}
+	else
+	{
+	   // Register other service
+	}
+
+* Downside of using IConfiguration directly
+
+The downside for using directly the IConfiguration is that it become fragile as it is required to type over and over
+the configuration keys, and for larger projects this can become an issue in cases the key names change.
+For larger projects, as more configuration dependcies exist, it can be come a bit messy doing a direct access.
+For example, chasing all strings that define keys can be hard to mantain.
+
+    if (_configuration.GetValue<bool>("Features:HomePage:EnableGreeting"))
+    {
+    }
+
+* Binding configuration
+
+It is possible to define a class that can be used to map agains a section in the configuration file. 
+For example, for the features section,  the following class is defined.
+
+   Note: The Class properies names need to match exactly the configuration keys
+         in order for teh binding to work. 
+    
+	"Features": {
+       "HomePage": {
+         "EnableGreeting": true,
+         "EnableWeatherForecast": true,
+         "ForecastSecionTitle": "What's the weather doing?'"
+       },
+      "WeatherForecasting": {
+        "EnableWeatherForecasting": true
+       }
+     },
+
+    private class Features
+	{
+		public bool EnableGreeting { get; set; }
+		public bool EnableWeatherForecast { get; set; }
+		public string ForecastSectionTitle { get; set; } = string.Empty;
+	}
+
+Then, the class can be instatiated and bind to the configuration section
+
+       // Get full section
+		var features = new Features();
+		// bind configuration section
+		_configuration.Bind("Features:HomePage", features);
+
+From this point the 'features' object is polulated with the values in the configuration file and 
+can be used to reference any value in this section.
+For example, at the Pages/Index.cshtml.cs
+
+        if (features.EnableGreeting)
+		{
+			Greeting = _greetingService.GetRandomGreeting();
+		}
+
+		ShowWeatherForecast = features.EnableWeatherForecast
+					&& _weatherForecaster.ForecastEnabled;
+
+		if (ShowWeatherForecast)
+		{
+			var title = features.ForecastSectionTitle;
+			......
+        }
+
+
+* Overwrite configuration for different environments
+
+Under the 'appsettings.json', if expanded, there is a 'appsetting.Development.json'.
+By convetntion the application will look for the file for the environment defined in the launchSettings.json,
+in the variable '"ASPNETCORE_ENVIRONMENT"'.
+
+For example, launchSettings.json defines 'Development'
+
+		{
+		  "profiles": {
+			"TennisBookings": {
+			  "commandName": "Project",
+			  "launchBrowser": true,
+			  "environmentVariables": {
+				"ASPNETCORE_ENVIRONMENT": "Development"
+			  },
+			  "applicationUrl": "https://localhost:7273;http://localhost:5273"
+			}
+		  }
+		}
+
+Therefore, at the start of the application it will look for the file 'appsetting.Development.json'.
+Base on this setting the application will load the setting files in the following order:
+
+     1. appsettings.json
+	 2. appsetting.Development.json
+
+The second file can override any preconfigure settings in the first file.
+The 'appsetting.Development.json' should contain only the settings we wish to override. 
+
+The 'ASPNETCORE_ENVIRONMENT' can be defined for "Development", "Testing","Staging", or "Production".
+The value is irrelevant, is just for looking for teh appropiate appsetting.<envirnoment>.json
+for overriding values from 'appsettings.json'.
+
+
