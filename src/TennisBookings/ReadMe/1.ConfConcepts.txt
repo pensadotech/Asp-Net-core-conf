@@ -12,11 +12,14 @@ execution time.
 The project also registers as service a background process using IHostedService. This process will 
 execute at start and initialze teh users for the in memory database. 
 
-Note: For this project to operate propely, teh startup must be configured to start the API withouth 
-      debuging and the TennisBookings project started with debugging. 
+	Note: 
+	The solution has a main projec named "TennisBookigs" and several API projects under teh external folder.
+	In order to work it is required to configure to start teh API projects first, with no debuging, and start with 
+	debugging the main project. All API project must start before teh main project begins.
 
-	  To do this, selecting the 'TennisBookings' and with right-button for teh mouse
-	  select 'Configure Startup Projects'
+	Select teh TennisBokkings project, and sing the mouse right-button select 'Configure Startup Projects'. 
+	In here select to use 'Multiple startup projects' and arrange and set as described. 
+
 
 
 Configuration concepts

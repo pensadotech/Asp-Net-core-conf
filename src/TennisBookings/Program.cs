@@ -211,7 +211,7 @@ app.MapControllerRoute(
 	name: "default",
 	pattern: "{controller=Home}/{action=Index}/{id?}");
 
-// RAZOR pages enabled 
+// RAZOR pages routing 
 app.MapRazorPages();
 
 // A DB initializer could be used here (e.g. DbInitializer.Seed(app);),
