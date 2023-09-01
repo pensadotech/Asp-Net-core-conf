@@ -20,6 +20,12 @@ execute at start and initialze teh users for the in memory database.
 	Select teh TennisBokkings project, and sing the mouse right-button select 'Configure Startup Projects'. 
 	In here select to use 'Multiple startup projects' and arrange and set as described. 
 
+The project uses ain-memory database using SqlLite and through a hosted service(background service) 
+initalizes users in the database (TennisBookings.BackgroundService.InitialiseDatabaseService)
+
+	AdminEmail = "admin@example.com";
+	MemberEmail = "member@example.com";
+	both uses as password = 'password'
 
 
 Configuration concepts

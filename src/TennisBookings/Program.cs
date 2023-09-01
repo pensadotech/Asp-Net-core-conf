@@ -174,7 +174,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 	options.AccessDeniedPath = "/identity/account/access-denied";
 });
 
-// add a way to display in thw console the final settings loaded in memory
+// add a way to display in the console the final settings loaded in memory
 // WARNING: This will expose all configuration and there could be sesnitive data 
 // that should not be exposed. Secrets are exposed in plan text.
 //if (builder.Environment.IsDevelopment())
