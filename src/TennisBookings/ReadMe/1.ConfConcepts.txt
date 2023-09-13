@@ -1,5 +1,5 @@
 Project Intro
-----------------------------
+=======================
 
 This project review configration concepts for APS.NET Core ( .NET 6) appllications. 
 Configureation is defined at appsettings.json, and this example demostrate teh interactions from 
@@ -29,24 +29,25 @@ initalizes users in the database (TennisBookings.BackgroundService.InitialiseDat
 
 
 Configuration concepts
-----------------------------
+===============================
 
-NOTE: If a configuration setting is not found, the default value for the definted type will be used.
+NOTE: If a configuration setting is not found, the default value for the definted variable will be used.
 
 
 * Direct access:
-
+-----------------
 
 A direct access to a cnfiguration variable is using the GetValue in the ibjected configuration object 
 For example: 
 
     if (_configuration.GetValue<bool>("Features:HomePage:EnableGreeting"))
     {
+	 ...
     }
 
 
 * Access through a section:
-
+----------------------------
 
 A different approach is to create a IConfiguration object for the configuration section, and retreive 
 the configuration items without having to retype the full flat text for the section.
@@ -71,10 +72,10 @@ For example:
 	}
 
 
-* Access configuration at Startup (Connection strings):
+* Access configuration at Startup (DB Connection strings):
+--------------------------------------------------------
 
-
-It is common for appliction to use a database connection string. This is normally
+It is common for application to use a database connection string. This is normally
 defined in the appsetting.json under the 'ConnectionStrings' section.
 For example
 
@@ -100,29 +101,42 @@ For example,
 
 
 * Using configuration in service extensions to conditionally register services:
+-----------------------------------------------------------------------------------
 
-
-If a service extension need a configuration value, for example, to register or not services, 
+If a service extension needs a configuration value, for example, to register or not services, 
 the IConfiguration object can be passed for internal use.
-For example, at the Program.cs
+For example,
+
+    Program.cs
     
 	// use a service extension to register services
     builder.Services.AddWeatherForecasting(builder.Configuration)
 
 Inside the WeatherServiceCollectionExtensions
    
-   public static IServiceCollection AddWeatherForecasting(this IServiceCollection services,
-		IConfiguration config)
-	{
-	    // Register services
-	}
-	else
-	{
-	   // Register other service
-	}
+		public static class WeatherServiceCollectionExtensions
+		{
+			public static IServiceCollection AddWeatherForecasting(this IServiceCollection services,
+				                                                   IConfiguration config)
+			{
+				// The configuration in here is to enable or disable funcionality for full weather forecasting
+				// services or to use a disable feature.
+				if (config.GetValue<bool>("Features:WeatherForecasting:EnableWeatherForecasting"))
+				{
+					// REgister services
+				}
+				else
+				{
+					// REgister alternative services
+				}
+
+				return services;
+			}
+		}
+
 
 * Downside of using IConfiguration directly
-
+---------------------------------------------
 The downside for using directly the IConfiguration is that it become fragile as it is required to type over and over
 the configuration keys, and for larger projects this can become an issue in cases the key names change.
 For larger projects, as more configuration dependcies exist, it can be come a bit messy doing a direct access.
@@ -130,16 +144,20 @@ For example, chasing all strings that define keys can be hard to mantain.
 
     if (_configuration.GetValue<bool>("Features:HomePage:EnableGreeting"))
     {
+	   ...
     }
 
-* Binding configuration
 
-It is possible to define a class that can be used to map agains a section in the configuration file. 
+* Binding configuration
+--------------------------
+It is possible to define a class that can be used to map against a section in the configuration file. 
 For example, for the features section,  the following class is defined.
 
    Note: The Class properies names need to match exactly the configuration keys
          in order for teh binding to work. 
     
+	// Configuration section
+
 	"Features": {
        "HomePage": {
          "EnableGreeting": true,
@@ -151,6 +169,8 @@ For example, for the features section,  the following class is defined.
        }
      },
 
+    // Class representing teh configuration section
+
     private class Features
 	{
 		public bool EnableGreeting { get; set; }
@@ -158,10 +178,12 @@ For example, for the features section,  the following class is defined.
 		public string ForecastSectionTitle { get; set; } = string.Empty;
 	}
 
-Then, the class can be instatiated and bind to the configuration section
+Then, the class can be instatiated and binded to the configuration section
+in the following way.
 
        // Get full section
 		var features = new Features();
+
 		// bind configuration section
 		_configuration.Bind("Features:HomePage", features);
 
@@ -180,15 +202,16 @@ For example, at the Pages/Index.cshtml.cs
 		if (ShowWeatherForecast)
 		{
 			var title = features.ForecastSectionTitle;
-			......
+			...
         }
 
 
-* Overwrite configuration for different environments
 
+* Overwrite configuration for different environments
+-----------------------------------------------------
 Under the 'appsettings.json', if expanded, there is a 'appsetting.Development.json'.
 By convetntion the application will look for the file for the environment defined in the launchSettings.json,
-in the variable '"ASPNETCORE_ENVIRONMENT"'.
+in the variable 'ASPNETCORE_ENVIRONMENT'.
 
 For example, launchSettings.json defines 'Development'
 
@@ -212,10 +235,10 @@ Base on this setting the application will load the setting files in the followin
 	 2. appsetting.Development.json
 
 The second file can override any preconfigure settings in the first file.
-The 'appsetting.Development.json' should contain only the settings we wish to override. 
+The 'appsetting.Development.json' should contain only the settings we wish to override or even new ones. 
 
 The 'ASPNETCORE_ENVIRONMENT' can be defined for "Development", "Testing","Staging", or "Production".
-The value is irrelevant, is just for looking for teh appropiate appsetting.<envirnoment>.json
+The value is irrelevant, it is just for looking for the appropiate appsetting.<envirnoment>.json
 for overriding values from 'appsettings.json'.
 
 

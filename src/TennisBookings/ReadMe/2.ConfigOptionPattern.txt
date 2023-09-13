@@ -1,7 +1,6 @@
 Configurtion Option Pattern
 =================================
 
-
 * Option patterns
                            
 	IOptions<T>          - Registerd  as a singleton with the DI, Does not suport relaoding, does not support named options
@@ -18,6 +17,8 @@ making configuration easyly accessible from many places.
 
 First create a class that contains properties that are the same for a section confguration keys:
 For example, 
+     
+    // appsettings.json
 
 	"Features": {
 		"HomePage": {
@@ -30,6 +31,7 @@ For example,
 		}
 	  },
     
+	// HomePageConfiguration
 	// Class for the 'HomePage' section inside the 'Features' section
 	public class HomePageConfiguration
 	{
