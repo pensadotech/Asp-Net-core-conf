@@ -20,6 +20,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TennisBookings.Shared", "src\TennisBookings.Shared\TennisBookings.Shared.csproj", "{A610A296-8F5D-41D9-A3D3-A9BDF7C84757}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{74C50196-AF06-45B7-BA03-63B7820841AD}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ReadMe", "ReadMe", "{BCB08D9D-AEC6-42D1-B321-46DC21FD8C03}"
 	ProjectSection(SolutionItems) = preProject
 		ReadMe\1.ConfConcepts.txt = ReadMe\1.ConfConcepts.txt
 		ReadMe\2.ConfigOptionPattern.txt = ReadMe\2.ConfigOptionPattern.txt
@@ -110,6 +112,7 @@ Global
 		{218B9992-E3DB-4815-8795-B2A2EBF2CC0B} = {B5BA0B59-8D91-4F07-8090-34BDE097EFC9}
 		{E3F5D8BD-9EAC-4B00-94C2-DD19AA47DAC3} = {AD0738BA-577C-463D-8617-1B9D4544FE14}
 		{A610A296-8F5D-41D9-A3D3-A9BDF7C84757} = {B5BA0B59-8D91-4F07-8090-34BDE097EFC9}
+		{BCB08D9D-AEC6-42D1-B321-46DC21FD8C03} = {74C50196-AF06-45B7-BA03-63B7820841AD}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {48D28C8F-7C17-44A2-8CBC-FE82743DB063}
