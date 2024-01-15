@@ -20,7 +20,7 @@ There are tww places where configuration applies
 * Configuration providers loading order
 ------------------------------------------
 
-Configuration providers are executed in oreder, and each can add or override configuration values.
+Configuration providers are executed in order, and each can add or override configuration values.
 The default host builder includes default configuration providers
 
 The hosting framework,IWebHostBuilder.CreateDefaultBuilder(string[] args) calls the 

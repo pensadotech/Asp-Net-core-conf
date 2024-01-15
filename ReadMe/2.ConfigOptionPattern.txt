@@ -9,7 +9,7 @@ Configurtion Option Pattern
 
 	Note: defined in the Microsoft.Extensions.Options
 
-This patterns have the great benefit that can be injected as part of trh dependnecy injection infraestructure
+This patterns have the great benefit that can be injected as part of the dependnecy injection infraestructure
 making configuration easyly accessible from many places.
 
 * Configuration
@@ -86,7 +86,7 @@ configuration defined by the implemented IOptionsSnapshot<T>
 		{
 			var title = _homePageConfig.ForecastSectionTitle;
 
-The final step to make things operational, it is required to register the IOption in teh Program.cs
+The final step to make things operational, it is required to register the IOption in the Program.cs
 
 
 	// To use Configurations Patterns (IOptionsSnapshot<T>) 
@@ -98,7 +98,7 @@ The final step to make things operational, it is required to register the IOptio
 ---------------------
 
 Using IOptions<T> does not respond to configuration changes in the "appsettings" files.
-IOptions<T> works as a singleton and it keep the confiuration as it was loaded at the start. 
+IOptions<T> works as a singleton and it keep the configuration as it was loaded at the start. 
 
 If the system, as its running, must react to a change to the "appsettings" files, it is required to use the 
 IOptionsSnapshot<T> instead, as this is register as Scoped with the DI. For example 
@@ -119,7 +119,7 @@ It is important to exercise precaution. For non-critical features flags is failr
 safe to reload the configuration. But a risk may be introduced when reloading configuration
 values, such as database connection strings.
 
-The developer must consider carefuly teh safty aspect when using IOptionsShapshot<t>.
+The developer must consider carefuly the safty aspect when using IOptionsShapshot<t>.
 
 
 * Singleton services and IOptionsMonitor<T> pattern
@@ -177,10 +177,10 @@ Using it will be as follows
 * Named Options (IOptionsSnapshot<T> and IOptionsMonitor<T>)
 -------------------------------------------------------------
 
-IOptionsSnapshot<T> and IOptionsMonitor<T> introduce teh concept of named options. 
+IOptionsSnapshot<T> and IOptionsMonitor<T> introduce the concept of named options. 
 This is a feature not suported by the IOptions<T>.
 
-Used when there is two or more configuration points with simialr elements can be addressed 
+Used when there is two or more configuration points with similar elements can be addressed 
 with a common class that include properties for tight coupling. 
 
 In this example, there are two setting that define external calls properties, one 
@@ -208,7 +208,7 @@ that are applicable to both configurations.
 	}
 
 In order to have strong type, one option is to duplicate twice the ExternalServicesConfiguration, rename it, 
-to align with weather and products API, and register them as services independently in teh Program.cs. 
+to align with weather and products API, and register them as services independently in the Program.cs. 
 But this is not the best option.
 
 The second option is to use Named options. For this, we use the same class, ExternalServicesConfiguration, 
@@ -225,7 +225,7 @@ the same class.
 	        builder.Configuration.GetSection("ExternalServices:ProductApi"));
 
 
-For comsuption in classes, it is required to use in teh constructor as injected parameter
+For comsuption in classes, it is required to use in the constructor as injected parameter
 the IOptionsSnapshot<T> or IOptionsMonitor<T>. For example the TennisBookings.External.WeatherApiClient
 looks as follows, in where the required configurtion point is refrenced:
 
@@ -317,7 +317,7 @@ This way, the code can be refacotor as follows,
 
 Note: using System.ComponentModel.DataAnnotations;
 
-This is uising attributes into the classes that represent a section of the configuration. 
+This is using attributes into the classes that represent a section of the configuration. 
 For example
  
     public class HomePageConfiguration
@@ -349,7 +349,7 @@ For this, in the registrattion add .ValidateOnStart()
 * Options Validations, advance approach using functions
 ----------------------------------------------------------
 
-Insted of using data annotations attributes, a function can be used to identify if somethiong is missing.
+Insted of using data annotations attributes, a function can be used to identify if something is missing.
 This functionality is added at teh registration in the Program.cs. For example 
 
 	// Example using a validate function
@@ -371,7 +371,7 @@ The validation classes are registered in the Program.cs and and upon execution, 
 applicaiton will not run.
 
 The project has many validation classes. The TennisBookings.Configuration.HomePageConfigurationValidation
-will be followed as example. THis is as follows:
+will be followed as example. This is as follows:
 
 	public class HomePageConfigurationValidation : IValidateOptions<HomePageConfiguration>
 	{
@@ -396,10 +396,10 @@ will be followed as example. THis is as follows:
 
 	}
 
-The important part is that the IOption can be injected, and this permits to create any validation agains the 
+The important part is that the IOption can be injected, and this permits to create any validation against the 
 confurations section on the 'HomePage' section, representd by the HomePageConfiguration class.
 
-In order for to work, the validation class need to be regitered in the Program.cs
+In order for it to work, the validation class needs to be regitered in the Program.cs
 For example, 
 
 	// IOption for "Features:HomePage"
@@ -416,7 +416,7 @@ For example,
 
 * Name option config validations 
 -----------------------------------
-Note: one class for two simialt conf elements
+Note: one class for two similar conf elements
 
 The example is TennisBookings.Configuration.ExternalServicesConfigurationValidation.
 As part of the IValidateOptions<T>, the implementation method 'Validate', passes a
@@ -455,8 +455,8 @@ validation to the conf section. For example,
 * Options forwarding 
 -----------------------
 
-If the applcation depends only in inkecting IOptions<T>, it may only be neded the strong type configuration aspect 
-the Otions features. This is a simpler approach for configuration validation, and teh implementation is as
+If the applcation depends only in injecting IOptions<T>, it may only be neded the strong type configuration aspect 
+the Otions features. This is a simpler approach for configuration validation, and the implementation is as
 follows.
 
 For a given configuration class, for example TennisBookings.Configuration.ContentConfiguration, create 
@@ -467,7 +467,7 @@ an interface that describes it.
 		public bool CheckForProfanity { get; set; }
 	}
 
-Teh imterface, TennisBookings.Configuration.IContentConfiguration, is as follows
+The interface, TennisBookings.Configuration.IContentConfiguration, is as follows
 
 	// Option frwarding implementation
 	// The interface is implemented by TennisBookings.Configuration.ContentConfiguration
@@ -476,8 +476,8 @@ Teh imterface, TennisBookings.Configuration.IContentConfiguration, is as follows
 		bool CheckForProfanity { get; set; } // intention is to implement a consumer abstraction
 	}
 
-With this chnage, in the places that IOptions<ContentConfiguration> contentConfig is refrenced
-it can be chnaged to IContentConfiguration contentConfig. For example in the 
+With this change, in the places that IOptions<ContentConfiguration> contentConfig is referenced
+it can be changed to IContentConfiguration contentConfig. For example in the 
 TennisBookings.Configuration.HomePageConfigurationValidation, the change will look like this.
 
 

@@ -1,14 +1,14 @@
 Service extensions 
 ----------------------------
 
-The dependencyInjection folder implements an classes that work as an extensions for
+The dependencyInjection folder implements any classes that work as an extensions for
 servicies definitions. Normally services are defined directly in the Program.cs but when 
-the number is considerable large, service extensions can help with teh code organization.
+the number is considerable large, service extensions can help with code organization.
 
 For this example, the services extensions defined in the folder 'DependencyInjection' uses
-services organized undr the folder 'Services'.
+services organized under the folder 'Services'.
 
-In general a service extension have the proper characteristics:
+In general, a service extension have the proper characteristics:
 
 * It can be refrences from the Program.p like any individual services. 
   For example: 
@@ -26,8 +26,8 @@ In general a service extension have the proper characteristics:
 
       public static IServiceCollection AddBookingServices(this IServiceCollection services)
 
-* Indisde services can be invoked and added to the servics collection in memory.
-  For eaxmaple:
+* Inside services can be invoked and added to the services collection in memory.
+  For examaple:
 
     services.TryAddScoped<ICourtService, CourtService>();
 	services.TryAddScoped<ICourtBookingManager, CourtBookingManager>();
@@ -48,7 +48,7 @@ In general a service extension have the proper characteristics:
 			ServiceDescriptor.Scoped<IUnavailabilityProvider, CourtBookingUnavailabilityProvider>()
 		}); // register multiple implementations manually
 
- * The service extention can use 'scutor' to add programatically many services into teh colelction in memory
+ * The service extention can use 'scutor' to add programatically many services into the colelction in memory
    For example
 
         // Scrutor assembly scanning for all services associated with ICourtBookingRule
@@ -63,7 +63,7 @@ In general a service extension have the proper characteristics:
 
 
 * The service extention can use 'scutor' to define a service that implements the decorator patter.
-  This is, implements an interfaces but gets injected the same interface with teh purpose to 
+  This is, implements an interfaces but gets injected the same interface with the purpose to 
   extend teh functionality. For example adding cahching. 
   For example, the WeatherServiceCollectionExtensions used decorator.
 

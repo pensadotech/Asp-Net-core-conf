@@ -1,7 +1,7 @@
 Project Intro
 =======================
 
-This project review configration concepts for APS.NET Core ( .NET 6) appllications. 
+This project review configration concepts for APS.NET Core (.NET 6) appllications. 
 Configureation is defined at appsettings.json, and this example demostrate teh interactions from 
 the code. 
 
@@ -10,17 +10,17 @@ This presents many approaches for this, including the use of 'scutor' to registe
 execution time. 
 
 The project also registers as service a background process using IHostedService. This process will 
-execute at start and initialze teh users for the in memory database. 
+execute at start and initialze the users for the in memory database. 
 
 	Note: 
-	The solution has a main projec named "TennisBookigs" and several API projects under teh external folder.
-	In order to work it is required to configure to start teh API projects first, with no debuging, and start with 
-	debugging the main project. All API project must start before teh main project begins.
+	The solution has a main projecy named "TennisBookigs" and several API projects under the external folder.
+	In order to work it is required to configure to start the API projects first, with no debuging, and start with 
+	debugging the main project. All API project must start before the main project begins.
 
-	Select teh TennisBokkings project, and sing the mouse right-button select 'Configure Startup Projects'. 
-	In here select to use 'Multiple startup projects' and arrange and set as described. 
+	Select the TennisBokkings project, and using the mouse right-button select 'Configure Startup Projects'. 
+	In here, select to use 'Multiple startup projects' and arrange and set as described. 
 
-The project uses ain-memory database using SqlLite and through a hosted service(background service) 
+The project uses an in-memory database using SqlLite and through a hosted service(background service) 
 initalizes users in the database (TennisBookings.BackgroundService.InitialiseDatabaseService)
 
 	AdminEmail = "admin@example.com";
@@ -37,7 +37,7 @@ NOTE: If a configuration setting is not found, the default value for the definte
 * Direct access:
 -----------------
 
-A direct access to a cnfiguration variable is using the GetValue in the ibjected configuration object 
+A direct access to a configuration variable is using the GetValue in the objected configuration object 
 For example: 
 
     if (_configuration.GetValue<bool>("Features:HomePage:EnableGreeting"))
@@ -63,7 +63,7 @@ For example:
 
 	if(ShowWeatherForecast)
 	{
-	   // Note: By defulat all configuration is handled as string.
+	   // Note: By default all configuration is handled as string.
 	   // For string values the configuration key can be passed as Indexer
 	   // to retreive directly teh string value
 	   var title = homePageFeatures["ForecastSecionTitle"];
@@ -210,10 +210,10 @@ For example, at the Pages/Index.cshtml.cs
 * Overwrite configuration for different environments
 -----------------------------------------------------
 Under the 'appsettings.json', if expanded, there is a 'appsetting.Development.json'.
-By convetntion the application will look for the file for the environment defined in the launchSettings.json,
+By convention, the application will look for the file for the environment defined in the launchSettings.json,
 in the variable 'ASPNETCORE_ENVIRONMENT'.
 
-For example, launchSettings.json defines 'Development'
+For example, 'launchSettings.json' defines 'Development'
 
 		{
 		  "profiles": {
